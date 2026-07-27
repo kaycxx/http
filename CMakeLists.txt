@@ -5,7 +5,7 @@ set(NAMESPACE kaycxx)
 set(PACKAGE_NAME ${NAMESPACE}-${NAME})
 
 project(${PACKAGE_NAME}
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "HTTP client library"
     HOMEPAGE_URL "https://github.com/${NAMESPACE}/${NAME}"
     LANGUAGES CXX

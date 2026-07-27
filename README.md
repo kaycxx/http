@@ -33,7 +33,7 @@ The guides below cover request bodies, streaming, headers, options, responses, a
 CMake users consume the installed package with:
 
 ```cmake
-find_package(kaycxx-http 0.1.0 CONFIG REQUIRED)
+find_package(kaycxx-http 0.2.0 CONFIG REQUIRED)
 target_link_libraries(my-target PRIVATE kaycxx::http)
 ```
 
