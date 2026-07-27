@@ -320,7 +320,8 @@ transfer_result client::impl::transfer(
         check(curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, request_method.c_str()), "request method");
         if (multipart_data.has_value()) {
             // Preserve custom multipart methods across 301/302 redirects, but allow 303 to switch to GET.
-            check(curl_easy_setopt(handle, CURLOPT_POSTREDIR, static_cast<long>(CURL_REDIR_POST_301 | CURL_REDIR_POST_302)), "redirect method handling");
+            const long post_redirects = CURL_REDIR_POST_301 | CURL_REDIR_POST_302;
+            check(curl_easy_setopt(handle, CURLOPT_POSTREDIR, post_redirects), "redirect method handling");
         }
     }
 
