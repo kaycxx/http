@@ -10,7 +10,11 @@ C++ HTTP client library using libcurl as its backend.
 - libcurl 8.13.0 or newer
 - nlohmann/json 3.11.3 or newer
 - Exception support
-- Run-time type information (RTTI)
+
+Building the unit tests additionally requires:
+
+- cpp-httplib 0.17.0 or newer
+- pkg-config
 
 ## Usage
 
