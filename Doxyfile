@@ -1,0 +1,19 @@
+INPUT                  = README.md include docs
+STRIP_FROM_PATH        = include \
+                         .
+STRIP_FROM_INC_PATH    = include
+USE_MDFILE_AS_MAINPAGE = README.md
+JAVADOC_AUTOBRIEF      = YES
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */detail/*
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_TREEVIEW      = NO
+TOC_INCLUDE_HEADINGS   = 0
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = NO
+HTML_COLORSTYLE        = LIGHT
+HTML_EXTRA_STYLESHEET  = .doxygen/theme/doxygen-awesome.css
+GENERATE_LATEX         = NO
+QUIET                  = YES
+REPEAT_BRIEF           = YES

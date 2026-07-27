@@ -1,0 +1,12 @@
+prefix=${pcfiledir}/@PC_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: @PACKAGE_NAME@
+Description: @PROJECT_DESCRIPTION@
+Version: @PROJECT_VERSION@
+Requires: nlohmann_json >= 3.11.3
+Requires.private: libcurl >= 8.13.0, kaycxx-core >= 0.1.0
+Libs: -L${libdir} -l@PACKAGE_NAME@
+Cflags: -I${includedir}

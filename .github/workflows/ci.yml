@@ -1,0 +1,49 @@
+name: ci
+on: [push]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  ci:
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake doxygen graphviz libcpp-httplib-dev libcurl4-openssl-dev ninja-build nlohmann-json3-dev
+      - name: Configure project
+        run: cmake --preset debug
+      - name: Build project
+        run: cmake --build --preset debug
+      - name: Run tests
+        run: FORCE_COLOR=1 cmake --build --preset debug --target test
+      - name: Create API Doc
+        run: cmake --build --preset debug --target apidoc
+      - name: Install project
+        run: cmake --install build/debug --prefix /tmp/root
+      - name: Setup Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v6
+      - name: Upload API Doc
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/debug/apidoc/html
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: ci
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy API Doc
+        id: deployment
+        uses: actions/deploy-pages@v5

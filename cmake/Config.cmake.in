@@ -1,0 +1,13 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(nlohmann_json 3.11.3 CONFIG)
+
+if(NOT @BUILD_SHARED_LIBS@)
+    find_dependency(CURL 8.13.0)
+    find_dependency(kaycxx-core 0.1.0 CONFIG)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/@PACKAGE_NAME@-targets.cmake")
+
+check_required_components(@PACKAGE_NAME@)

@@ -1,0 +1,43 @@
+include(CMakePackageConfigHelpers)
+
+install(TARGETS ${PACKAGE_NAME}
+    EXPORT ${PACKAGE_NAME}-targets
+    FILE_SET HEADERS DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+)
+install(EXPORT ${PACKAGE_NAME}-targets
+    NAMESPACE ${NAMESPACE}::
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PACKAGE_NAME}"
+)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_LIST_DIR}/Config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}Config.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PACKAGE_NAME}"
+)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}ConfigVersion.cmake"
+    VERSION "${PROJECT_VERSION}"
+    COMPATIBILITY SameMajorVersion
+)
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}Config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}ConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PACKAGE_NAME}"
+)
+
+file(RELATIVE_PATH PC_PREFIX
+    "/${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+    "/"
+)
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/pkg-config.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}.pc"
+    @ONLY
+)
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}.pc"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+)

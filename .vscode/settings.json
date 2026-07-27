@@ -1,0 +1,12 @@
+{
+    "cSpell.customDictionaries": {
+        "workspace-project-words": {
+            "name": "workspace-project-words",
+            "path": "${workspaceFolder}/.spell/words.txt",
+            "addWords": true
+        }
+    },
+    "files.exclude": {
+        "build/": true
+    }
+}
