@@ -33,21 +33,47 @@ server::server() {
     };
     const auto multipart_form = [](const httplib::Request& request, httplib::Response& response) {
         auto parts = nlohmann::json::object();
-        for (const auto& [name, part] : request.files) {
+        const auto append_part = [&parts](
+            std::string_view name,
+            std::string_view part_name,
+            std::string_view filename,
+            std::string_view content_type,
+            std::string_view content
+        ) {
             auto bytes = nlohmann::json::array();
-            for (const auto character : part.content) {
+            for (const auto character : content) {
                 bytes.push_back(static_cast<unsigned char>(character));
             }
             if (!parts.contains(name)) {
                 parts[name] = nlohmann::json::array();
             }
             parts[name].push_back(nlohmann::json{
-                { "name", part.name },
-                { "filename", part.filename },
-                { "content_type", part.content_type },
+                { "name", part_name },
+                { "filename", filename },
+                { "content_type", content_type },
                 { "bytes", std::move(bytes) }
             });
-        }
+        };
+        // Normalize the legacy flat multipart representation and the newer split form representation.
+        const auto append_parts = [&append_part]<typename Request>(const Request& multipart_request) {
+            if constexpr (requires { multipart_request.form.fields; multipart_request.form.files; }) {
+                for (const auto& [name, field] : multipart_request.form.fields) {
+                    const auto header = field.headers.find("Content-Type");
+                    const auto content_type = header == field.headers.end()
+                        ? std::string_view{}
+                        : std::string_view{header->second};
+                    append_part(name, field.name, {}, content_type, field.content);
+                }
+                for (const auto& [name, file] : multipart_request.form.files) {
+                    append_part(name, file.name, file.filename, file.content_type, file.content);
+                }
+            } else {
+                for (const auto& [name, part] : multipart_request.files) {
+                    append_part(name, part.name, part.filename, part.content_type, part.content);
+                }
+            }
+        };
+        append_parts(request);
         response.set_content(nlohmann::json{
             { "method", request.method },
             { "content_type", request.get_header_value("Content-Type") },
