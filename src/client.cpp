@@ -7,11 +7,16 @@
 #include "client_impl.hpp"
 
 #include <memory>
+#include <utility>
 
 namespace kaycxx::http {
 
 client::client()
-    : impl_{std::make_unique<impl>()} {
+    : client{request_options{}} {
+}
+
+client::client(request_options default_options)
+    : impl_{std::make_unique<impl>(std::move(default_options))} {
 }
 
 client::~client() = default;

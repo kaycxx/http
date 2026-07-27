@@ -27,6 +27,7 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace {
 
@@ -65,13 +66,45 @@ namespace kaycxx::http {
 
 using namespace detail;
 
-client::impl::impl()
-    : curl_{nullptr, &curl_easy_cleanup} {
+client::impl::impl(request_options default_options)
+    : curl_{nullptr, &curl_easy_cleanup},
+      default_options_{std::move(default_options)} {
     ensure_curl_initialized();
     curl_.reset(curl_easy_init());
     if (!curl_) {
         throw error{"Unable to create libcurl easy handle"};
     }
+    if (!default_options_.max_buffered_response_size.has_value()) {
+        default_options_.max_buffered_response_size = 64 * 1024 * 1024;
+    }
+}
+
+request_options client::impl::merge_options(const request_options& options) const {
+    auto result = default_options_;
+    std::erase_if(result.headers, [&options](const auto& default_header) {
+        return has_header(options.headers, default_header.name);
+    });
+    result.headers.insert(result.headers.end(), options.headers.begin(), options.headers.end());
+
+    if (options.follow_redirects.has_value()) {
+        result.follow_redirects = options.follow_redirects;
+    }
+    if (options.max_redirects.has_value()) {
+        result.max_redirects = options.max_redirects;
+    }
+    if (options.connect_timeout.has_value()) {
+        result.connect_timeout = options.connect_timeout;
+    }
+    if (options.request_timeout.has_value()) {
+        result.request_timeout = options.request_timeout;
+    }
+    if (options.progress) {
+        result.progress = options.progress;
+    }
+    if (options.max_buffered_response_size.has_value()) {
+        result.max_buffered_response_size = options.max_buffered_response_size;
+    }
+    return result;
 }
 
 buffered_response client::impl::perform(
@@ -200,6 +233,7 @@ transfer_result client::impl::transfer(
     const auto finish_transfer = kaycxx::core::scope_exit{[this]() noexcept {
         in_progress_ = false;
     }};
+    const auto effective_options = merge_options(options);
 
     validate_http_token(method, "HTTP request method");
 
@@ -236,13 +270,13 @@ transfer_result client::impl::transfer(
     auto response_data = response_state{
         .handle = handle,
         .stream = output,
-        .max_buffered_response_size = options.max_buffered_response_size
+        .max_buffered_response_size = effective_options.max_buffered_response_size
     };
-    auto progress_data = progress_state{options.progress};
+    auto progress_data = progress_state{effective_options.progress};
 
     auto headers = curl_headers{nullptr, &curl_slist_free_all};
-    append_headers(headers, options.headers, multipart_data.has_value() ? header_context::multipart_request : header_context::request);
-    if (!request_data.default_content_type.empty() && !has_header(options.headers, "Content-Type")) {
+    append_headers(headers, effective_options.headers, multipart_data.has_value() ? header_context::multipart_request : header_context::request);
+    if (!request_data.default_content_type.empty() && !has_header(effective_options.headers, "Content-Type")) {
         const auto content_type = std::string{"Content-Type: "} + std::string{request_data.default_content_type};
         append_header(headers, content_type);
     }
@@ -252,17 +286,18 @@ transfer_result client::impl::transfer(
         check(curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers.get()), "headers");
     }
     check(curl_easy_setopt(handle, CURLOPT_PROTOCOLS_STR, "http,https"), "protocols");
-    if (options.follow_redirects.has_value()) {
-        check(curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, *options.follow_redirects ? CURLFOLLOW_OBEYCODE : 0L), "redirect handling");
+    if (effective_options.follow_redirects.has_value()) {
+        check(curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, *effective_options.follow_redirects ? CURLFOLLOW_OBEYCODE : 0L), "redirect handling");
     }
-    if (options.max_redirects.has_value()) {
-        check(curl_easy_setopt(handle, CURLOPT_MAXREDIRS, to_curl_long(*options.max_redirects, "redirect limit")), "redirect limit");
+    if (effective_options.max_redirects.has_value()) {
+        check(curl_easy_setopt(handle, CURLOPT_MAXREDIRS, to_curl_long(*effective_options.max_redirects, "redirect limit")), "redirect limit");
     }
-    if (options.connect_timeout.has_value()) {
-        check(curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS, to_curl_long(options.connect_timeout->count(), "connection timeout")), "connection timeout");
+    if (effective_options.connect_timeout.has_value()) {
+        const auto timeout = to_curl_long(effective_options.connect_timeout->count(), "connection timeout");
+        check(curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS, timeout), "connection timeout");
     }
-    if (options.request_timeout.has_value()) {
-        check(curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS, to_curl_long(options.request_timeout->count(), "request timeout")), "request timeout");
+    if (effective_options.request_timeout.has_value()) {
+        check(curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS, to_curl_long(effective_options.request_timeout->count(), "request timeout")), "request timeout");
     }
     check(curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L), "signal handling");
     check(curl_easy_setopt(handle, CURLOPT_ACCEPT_ENCODING, ""), "content decoding");
@@ -270,7 +305,7 @@ transfer_result client::impl::transfer(
     check(curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, &write_body), "response callback");
     check(curl_easy_setopt(handle, CURLOPT_WRITEDATA, &response_data), "response output");
 
-    if (options.progress) {
+    if (effective_options.progress) {
         check(curl_easy_setopt(handle, CURLOPT_XFERINFOFUNCTION, &report_progress), "progress callback");
         check(curl_easy_setopt(handle, CURLOPT_XFERINFODATA, &progress_data), "progress data");
         check(curl_easy_setopt(handle, CURLOPT_NOPROGRESS, 0L), "progress reporting");

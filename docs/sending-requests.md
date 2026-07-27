@@ -17,6 +17,23 @@ int main() {
 
 A client is movable but not copyable. A single instance must not be used concurrently from multiple threads. Separate client instances can be used by separate threads. Starting another request reentrantly on the same instance, such as from a progress callback, throws `error`.
 
+Options passed to the constructor become defaults for all requests sent by that client. Request-specific options override corresponding values and merge headers by ASCII case-insensitive name:
+
+```cpp
+client http_client{{
+    .headers = {
+        { "User-Agent", "example-client/1.0" }
+    },
+    .request_timeout = std::chrono::seconds{30}
+}};
+
+const auto response = http_client.get("https://example.com/data", {
+    .request_timeout = std::chrono::seconds{5}
+});
+```
+
+[Headers and Options] describes inheritance, header merging, and all available settings.
+
 ## Convenience Methods
 
 The convenience methods select the common HTTP methods without passing a method string explicitly:
@@ -40,7 +57,7 @@ Each method supports the same four request shapes:
 All methods accept `request_options` as their final argument. See [Headers and Options] for the available settings and their defaults.
 
 ```cpp
-const auto response = http_client.get("https://example.com/data", request_options{
+const auto response = http_client.get("https://example.com/data", {
     .headers = {
         { "Accept", "application/json" }
     }
@@ -57,7 +74,7 @@ Use `request()` for methods without a dedicated convenience function. The method
 const auto response = http_client.request(
     "PROPFIND",
     "https://example.com/documents",
-    request_options{
+    {
         .headers = {
             { "Depth", "1" }
         }

@@ -34,11 +34,12 @@ struct transfer_result;
 class client::impl {
 public:
     /**
-     * Creates a reusable libcurl easy handle.
+     * Creates a reusable libcurl easy handle with default request options.
      *
-     * @throws error  When libcurl cannot be initialized or its easy handle cannot be created.
+     * @param default_options  Default options for requests performed by this client.
+     * @throws error           When libcurl cannot be initialized or its easy handle cannot be created.
      */
-    impl();
+    explicit impl(request_options default_options);
 
     /**
      * Performs an HTTP request and buffers the response body.
@@ -75,6 +76,14 @@ public:
     );
 
 private:
+    /**
+     * Merges request-specific options with the defaults of this client.
+     *
+     * @param options  Request-specific options.
+     * @returns Effective options for the request.
+     */
+    [[nodiscard]] request_options merge_options(const request_options& options) const;
+
     /**
      * Serializes a URL-encoded form.
      *
@@ -128,6 +137,9 @@ private:
 
     /** Reusable libcurl easy handle retaining its connection cache between requests. */
     detail::curl_handle curl_;
+
+    /** Default options inherited by requests performed by this client. */
+    request_options default_options_;
 
     /** Whether this client currently performs a request. */
     bool in_progress_ = false;

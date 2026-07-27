@@ -701,6 +701,34 @@ suite("client") {
         assert_true(response_without_header.text().empty());
     });
 
+    it("inherits and overrides client request headers", [] {
+        client client{request_options{
+            .headers = {
+                { "X-Test-Header", "client value" }
+            }
+        }};
+
+        const auto inherited = client.get(test_server.url("/header"));
+        assert_equal(inherited.text(), std::string_view{"client value"});
+
+        const auto retained = client.get(test_server.url("/header"), request_options{
+            .headers = {
+                { "X-Unrelated-Header", "request value" }
+            }
+        });
+        assert_equal(retained.text(), std::string_view{"client value"});
+
+        const auto overridden = client.get(test_server.url("/header"), request_options{
+            .headers = {
+                { "x-test-header", "request value" }
+            }
+        });
+        assert_equal(overridden.text(), std::string_view{"request value"});
+
+        const auto inherited_again = client.get(test_server.url("/header"));
+        assert_equal(inherited_again.text(), std::string_view{"client value"});
+    });
+
     it("sends an explicitly empty request header", [] {
         client client{};
         const auto response = client.get(test_server.url("/empty-header"), request_options{
@@ -927,6 +955,27 @@ suite("client") {
         }
     });
 
+    it("inherits and overrides client redirect handling", [] {
+        client client{request_options{
+            .follow_redirects = true
+        }};
+
+        const auto inherited = client.get(test_server.url("/redirect-with-body"));
+        assert_equal(inherited.status_code(), 200);
+
+        assert_throw<response_error>(
+            [&client] {
+                return client.get(test_server.url("/redirect-with-body"), request_options{
+                    .follow_redirects = false
+                });
+            },
+            std::regex{".*HTTP status 302.*"}
+        );
+
+        const auto inherited_again = client.get(test_server.url("/redirect-with-body"));
+        assert_equal(inherited_again.status_code(), 200);
+    });
+
     it("applies the configured redirect limit", [] {
         client client{};
 
@@ -962,6 +1011,27 @@ suite("client") {
         assert_equal(response.text(), std::string_view{"Slow response"});
     });
 
+    it("inherits and overrides the client request timeout", [] {
+        client client{request_options{
+            .request_timeout = std::chrono::milliseconds{10}
+        }};
+
+        assert_throw<error>(
+            [&client] { return client.get(test_server.url("/slow")); },
+            std::regex{".*([Tt]imeout|timed out).*"}
+        );
+
+        const auto overridden = client.get(test_server.url("/slow"), request_options{
+            .request_timeout = std::chrono::seconds{1}
+        });
+        assert_equal(overridden.text(), std::string_view{"Slow response"});
+
+        assert_throw<error>(
+            [&client] { return client.get(test_server.url("/slow")); },
+            std::regex{".*([Tt]imeout|timed out).*"}
+        );
+    });
+
     it("reports upload and download progress", [] {
         client client{};
         const auto body = std::string{"Progress test body"};
@@ -979,6 +1049,29 @@ suite("client") {
         assert_equal(progress.upload_total, size);
         assert_equal(progress.downloaded, size);
         assert_equal(progress.download_total, size);
+    });
+
+    it("inherits and overrides the client progress callback", [] {
+        auto client_updates = std::size_t{};
+        client client{request_options{
+            .progress = [&client_updates](const auto&) {
+                ++client_updates;
+            }
+        }};
+
+        [[maybe_unused]] const auto inherited = client.get(test_server.url("/get"));
+        assert_true(client_updates > 0);
+
+        const auto previous_client_updates = client_updates;
+        auto request_updates = std::size_t{};
+        [[maybe_unused]] const auto overridden = client.get(test_server.url("/get"), request_options{
+            .progress = [&request_updates](const auto&) {
+                ++request_updates;
+            }
+        });
+
+        assert_true(request_updates > 0);
+        assert_equal(client_updates, previous_client_updates);
     });
 
     it("reports zero progress totals unchanged", [] {
@@ -1066,10 +1159,31 @@ suite("client") {
     it("can disable the buffered response body limit", [] {
         client client{};
         const auto response = client.get(test_server.url("/get"), request_options{
-            .max_buffered_response_size = std::nullopt
+            .max_buffered_response_size = 0
         });
 
         assert_equal(response.text(), std::string_view{"Hello from the test server"});
+    });
+
+    it("inherits and overrides the client buffered response body limit", [] {
+        client client{request_options{
+            .max_buffered_response_size = 4
+        }};
+
+        assert_throw<error>(
+            [&client] { return client.get(test_server.url("/get")); },
+            std::regex{".*buffer limit.*"}
+        );
+
+        const auto unlimited = client.get(test_server.url("/get"), request_options{
+            .max_buffered_response_size = 0
+        });
+        assert_equal(unlimited.text(), std::string_view{"Hello from the test server"});
+
+        assert_throw<error>(
+            [&client] { return client.get(test_server.url("/get")); },
+            std::regex{".*buffer limit.*"}
+        );
     });
 
     it("limits buffered error response bodies", [] {
@@ -1372,7 +1486,7 @@ suite("request_body") {
 }
 
 suite("request_options") {
-    it("provides the request defaults", [] {
+    it("leaves request overrides unset", [] {
         const request_options options{};
 
         assert_equal(options.follow_redirects, std::optional<bool>{});
@@ -1380,7 +1494,7 @@ suite("request_options") {
         assert_equal(options.connect_timeout, std::optional<std::chrono::milliseconds>{});
         assert_equal(options.request_timeout, std::optional<std::chrono::milliseconds>{});
         assert_false(static_cast<bool>(options.progress));
-        assert_equal(options.max_buffered_response_size, std::optional<std::size_t>{64 * 1024 * 1024});
+        assert_equal(options.max_buffered_response_size, std::optional<std::size_t>{});
     });
 }
 

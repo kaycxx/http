@@ -59,7 +59,7 @@ const auto response = http_client.put(
     "https://example.com/process",
     input,
     output,
-    request_options{
+    {
         .headers = {
             { "Content-Type", "application/octet-stream" }
         }

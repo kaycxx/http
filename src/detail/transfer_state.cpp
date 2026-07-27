@@ -34,7 +34,7 @@ std::size_t write_body(char* data, std::size_t size, std::size_t count, void* us
                 throw error{"Unable to write HTTP response body"};
             }
         } else {
-            if (output.max_buffered_response_size.has_value()
+            if (output.max_buffered_response_size.has_value() && *output.max_buffered_response_size != 0
                     && (output.body.size() > *output.max_buffered_response_size
                         || bytes > *output.max_buffered_response_size - output.body.size())) {
                 throw error{

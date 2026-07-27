@@ -124,7 +124,7 @@ An explicitly configured `Content-Type` header takes precedence over the default
 const auto response = http_client.post(
     "https://example.com/document",
     "<message>Hello</message>",
-    request_options{
+    {
         .headers = {
             { "Content-Type", "application/xml" }
         }

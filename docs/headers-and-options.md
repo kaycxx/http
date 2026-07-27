@@ -1,6 +1,6 @@
 # Headers and Options
 
-`request_options` is an aggregate intended for designated initialization. Its defaults leave the libcurl redirect and timeout defaults unchanged and provide finite response buffering.
+`request_options` is an aggregate intended for designated initialization. Options passed to the `client` constructor become defaults for every request sent by that instance. Request-specific values override corresponding client defaults, while unset values inherit them.
 
 ```cpp
 #include <kaycxx/http.hpp>
@@ -8,31 +8,38 @@
 using namespace kaycxx::http;
 
 int main() {
-    client http_client{};
-    const auto options = request_options{
+    client http_client{{
         .headers = {
-            { "Accept", "application/json" },
-            { "X-Request-Id", "example-42" }
+            { "User-Agent", "example-client/1.0" },
+            { "Accept", "application/json" }
         },
         .follow_redirects = true,
         .max_redirects = 5,
         .connect_timeout = std::chrono::seconds{5},
         .request_timeout = std::chrono::minutes{1},
         .max_buffered_response_size = 128 * 1024 * 1024
-    };
+    }};
 
-    const auto response = http_client.get("https://example.com/data", options);
+    const auto response = http_client.get("https://example.com/data", {
+        .headers = {
+            { "X-Request-Id", "example-42" }
+        }
+    });
 
     return response.status_code() == 200 ? 0 : 1;
 }
 ```
 
+When neither the request nor the client configures an option, the library or libcurl default applies. Client defaults should only contain settings appropriate for every request sent by that instance. Client headers and progress callbacks cannot be removed for an individual request; configure them per request when they are not universally applicable.
+
 ## Request Headers
 
 Request header names and values are owning `std::string` values. A header with an empty value is sent as a present header with no value.
 
+Client and request headers are combined. A request header replaces all client headers with the same ASCII case-insensitive name, while client headers with other names are retained.
+
 ```cpp
-const auto response = http_client.get("https://example.com/data", request_options{
+const auto response = http_client.get("https://example.com/data", {
     .headers = {
         { "X-Empty-Header", "" }
     }
@@ -72,13 +79,13 @@ All name comparisons are ASCII case-insensitive.
 Enable redirect following explicitly:
 
 ```cpp
-const auto response = http_client.get("https://example.com/redirect", request_options{
+const auto response = http_client.get("https://example.com/redirect", {
     .follow_redirects = true,
     .max_redirects = 10
 });
 ```
 
-Both redirect options are optional. By default neither is sent to libcurl, which disables redirect following and uses a limit of 30 redirects if following is enabled. An explicitly configured `max_redirects` is sent independently of `follow_redirects`, although it only has an effect when redirect following is enabled.
+Both redirect options are optional. An unset request option inherits its client default. When neither level configures the option, nothing is sent to libcurl, which disables redirect following and uses a limit of 30 redirects if following is enabled. An explicitly configured `max_redirects` is sent independently of `follow_redirects`, although it only has an effect when redirect following is enabled.
 
 Redirect status codes select the subsequent method according to normal libcurl rules. A 303 switches to GET except after HEAD. A 307 or 308 retains the method and request body. POST requests normally switch to GET after 301 or 302.
 
@@ -88,7 +95,7 @@ Custom request headers are reused after redirects and can therefore be sent to a
 
 `connect_timeout` limits the connection phase. `request_timeout` limits the complete transfer, including the connection phase. Both are optional `std::chrono::milliseconds` values and accept compatible chrono durations.
 
-By default neither option is sent to libcurl. Its built-in defaults therefore apply: 300 seconds for the connection phase and no timeout for the complete transfer.
+An unset request timeout inherits its client default. When neither level configures a timeout, the option is not sent to libcurl. Its built-in defaults therefore apply: 300 seconds for the connection phase and no timeout for the complete transfer.
 
 Timeout failures throw `error`.
 
@@ -97,7 +104,7 @@ Timeout failures throw `error`.
 `progress` receives the current upload and download progress reported by libcurl. `download_total` and `upload_total` contain the expected total number of bytes. A value of `0` means that the total is unknown, the direction is unused or the transfer is empty; libcurl does not distinguish these cases in progress reports.
 
 ```cpp
-const auto response = http_client.put("https://example.com/data", input, output, request_options{
+const auto response = http_client.put("https://example.com/data", input, output, {
     .progress = [](const transfer_progress& progress) {
         std::cout
             << "Upload: " << progress.uploaded << '/' << progress.upload_total
@@ -107,19 +114,19 @@ const auto response = http_client.put("https://example.com/data", input, output,
 });
 ```
 
-The callback runs synchronously on the thread performing the request and is called once for every progress update from libcurl. Exceptions abort the transfer and are propagated unchanged. When the callback is empty, libcurl progress reporting remains disabled.
+The callback runs synchronously on the thread performing the request and is called once for every progress update from libcurl. Exceptions abort the transfer and are propagated unchanged. An empty request callback inherits the client callback. When neither level supplies a callback, libcurl progress reporting remains disabled. A request callback replaces the client callback for that transfer.
 
 ## Buffered Response Limit
 
-`max_buffered_response_size` limits every body retained internally by the client. It defaults to 64 MiB and applies equally to successful buffered responses and buffered error responses.
+`max_buffered_response_size` limits every body retained internally by the client and applies equally to successful buffered responses and buffered error responses. An unset request value inherits the client setting. When neither level configures a value, the library uses 64 MiB.
 
 Successful bodies written to an output stream are not affected. Error bodies remain subject to the limit because they are retained for `response_error` even when an output stream was provided.
 
-Set the option to `std::nullopt` to disable the limit:
+Set the option to zero to disable the limit:
 
 ```cpp
-const auto response = http_client.get("https://example.com/large", request_options{
-    .max_buffered_response_size = std::nullopt
+const auto response = http_client.get("https://example.com/large", {
+    .max_buffered_response_size = 0
 });
 ```
 

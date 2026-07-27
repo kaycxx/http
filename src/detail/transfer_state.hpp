@@ -31,7 +31,7 @@ struct response_state {
     /** Optional output stream receiving a successful response body. */
     std::ostream* stream = nullptr;
 
-    /** Maximum size of the internally buffered response body. `std::nullopt` disables the limit. */
+    /** Maximum size of the internally buffered response body. `std::nullopt` or zero disables the limit. */
     std::optional<std::size_t> max_buffered_response_size{};
 
     /** Buffered response body when no output stream is used or the response status is unsuccessful. */

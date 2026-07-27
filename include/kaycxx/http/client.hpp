@@ -30,6 +30,16 @@ public:
      */
     client();
 
+    /**
+     * Creates an HTTP client with default request options.
+     *
+     * Request-specific options override these defaults. Headers are merged by ASCII case-insensitive name.
+     *
+     * @param default_options  Default options for requests sent by this client.
+     * @throws error           When libcurl cannot be initialized or its easy handle cannot be created.
+     */
+    explicit client(request_options default_options);
+
     /** Destroys the HTTP client. */
     ~client();
 
