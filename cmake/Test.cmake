@@ -8,7 +8,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/GitDeps.cmake")
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(CPP_HTTPLIB REQUIRED IMPORTED_TARGET cpp-httplib>=0.17.0)
 
-git_require(kaycxx::test 0.3.1)
+git_require(kaycxx::test 0.3.2)
 
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     test/*.cpp
