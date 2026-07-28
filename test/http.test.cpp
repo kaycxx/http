@@ -3,7 +3,6 @@
 
 #include <support/server.hpp>
 
-#include <kaycxx/assert.hpp>
 #include <kaycxx/http.hpp>
 #include <kaycxx/test.hpp>
 
@@ -26,7 +25,6 @@
 #include <utility>
 #include <vector>
 
-using namespace kaycxx::assert;
 using namespace kaycxx::http;
 using namespace kaycxx::test;
 
